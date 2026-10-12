@@ -1,0 +1,21 @@
+# Netlify Configuration for A/L Study Tracker Fullstack App
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+  included_files = ["dist/**"]
+
+# Route API requests to the Netlify serverless function
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/server/api/:splat"
+  status = 200
+
+# Fallback for all client-side SPA routes to index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
