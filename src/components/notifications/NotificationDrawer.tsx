@@ -25,6 +25,10 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({ isOpen, 
         return <AlertTriangle className="w-4 h-4 text-red-600" />;
       case 'drive_sync':
         return <HardDrive className="w-4 h-4 text-blue-600" />;
+      case 'alert':
+        return <AlertTriangle className="w-4 h-4 text-rose-600" />;
+      case 'info':
+        return <Bell className="w-4 h-4 text-blue-600" />;
       default:
         return <Bell className="w-4 h-4 text-slate-600" />;
     }

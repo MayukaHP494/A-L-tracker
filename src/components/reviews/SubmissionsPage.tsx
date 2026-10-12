@@ -47,6 +47,7 @@ export const SubmissionsPage: React.FC = () => {
     isDriveSyncing,
     setActiveTab,
     topics,
+    pushNotification,
   } = useApp();
 
   // Modals state
@@ -102,11 +103,11 @@ export const SubmissionsPage: React.FC = () => {
     if (e.target.files && e.target.files[0]) {
       const selected = e.target.files[0];
       if (selected.type !== 'application/pdf') {
-        alert('Please select a valid PDF document.');
+        pushNotification('Invalid Document', 'Please select a valid PDF document.', 'alert');
         return;
       }
       if (selected.size > 25 * 1024 * 1024) {
-        alert('File size exceeds 25MB limit.');
+        pushNotification('File Too Large', 'File size exceeds 25MB limit.', 'alert');
         return;
       }
 
@@ -707,7 +708,7 @@ export const SubmissionsPage: React.FC = () => {
                       onClick={() => {
                         const verifiedNum = parseFloat(adjustedMarks);
                         if (isNaN(verifiedNum)) {
-                          alert('Please enter a valid mark.');
+                          pushNotification('Invalid Marks', 'Please enter a valid numeric mark.', 'alert');
                           return;
                         }
                         correctAndApproveSubmission(

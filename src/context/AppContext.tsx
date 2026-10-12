@@ -27,7 +27,13 @@ import {
   generateDemoData,
   isSampleRecord,
 } from '../lib/storage.ts';
-import { googleSignIn, logoutGoogle, getAccessToken, initAuth } from '../lib/firebase.ts';
+import {
+  googleSignIn,
+  logoutGoogle,
+  getAccessToken,
+  initAuth,
+  getActiveFirebaseConfig,
+} from '../lib/firebase.ts';
 import { ensureSubjectHierarchy, uploadPdfToDrive } from '../lib/drive.ts';
 
 export type NavTab =
@@ -93,6 +99,14 @@ interface AppContextType {
   disconnectGoogleDrive: () => Promise<void>;
   syncSubmissionFileToDrive: (submissionId: string, fileId: string) => Promise<void>;
   syncAllPendingFilesToDrive: () => Promise<void>;
+  authDomainError: {
+    domain: string;
+    projectId: string;
+    consoleUrl: string;
+  } | null;
+  setAuthDomainError: (
+    err: { domain: string; projectId: string; consoleUrl: string } | null
+  ) => void;
 
   // Topics
   topics: TopicItem[];
@@ -130,6 +144,12 @@ interface AppContextType {
   markNotificationAsRead: (id: string) => void;
   markAllNotificationsAsRead: () => void;
   unreadNotificationCount: number;
+  pushNotification: (
+    title: string,
+    message: string,
+    type: InAppNotification['type'],
+    linkTarget?: string
+  ) => void;
 
   // Calculated Stats
   subjectStats: Record<SubjectId, {
@@ -528,6 +548,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // 6. Google Drive State & Methods
   const [isDriveSyncing, setIsDriveSyncing] = useState(false);
+  const [authDomainError, setAuthDomainError] = useState<{
+    domain: string;
+    projectId: string;
+    consoleUrl: string;
+  } | null>(null);
 
   useEffect(() => {
     initAuth(
@@ -547,6 +572,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const connectGoogleDrive = async () => {
     try {
+      setAuthDomainError(null);
       const res = await googleSignIn();
       updateSettings({
         googleDriveConnected: true,
@@ -559,7 +585,44 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       );
     } catch (err: any) {
       console.error('Failed to sign in with Google:', err);
-      alert(`Could not connect to Google Drive: ${err?.message || 'Authentication cancelled'}`);
+      const activeCfg = getActiveFirebaseConfig();
+      const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
+      const consoleUrl = `https://console.firebase.google.com/project/${activeCfg.projectId}/authentication/settings`;
+
+      if (
+        err?.code === 'auth/unauthorized-domain' ||
+        err?.message?.includes('unauthorized-domain') ||
+        err?.isUnauthorizedDomain
+      ) {
+        setAuthDomainError({
+          domain: currentHost,
+          projectId: activeCfg.projectId,
+          consoleUrl,
+        });
+        pushNotification(
+          'Action Required: Authorize Domain',
+          `Add ${currentHost} to Firebase Authorized Domains in the console to allow Google Sign-In on Netlify.`,
+          'alert'
+        );
+      } else if (err?.code === 'auth/popup-closed-by-user') {
+        pushNotification(
+          'Sign-In Cancelled',
+          'The Google sign-in popup was closed before completion.',
+          'alert'
+        );
+      } else if (err?.code === 'auth/popup-blocked') {
+        pushNotification(
+          'Popup Blocked',
+          'Please allow popups in your browser to sign in with Google.',
+          'alert'
+        );
+      } else {
+        pushNotification(
+          'Could not connect to Google Drive',
+          err?.message || 'Authentication cancelled or failed.',
+          'alert'
+        );
+      }
     }
   };
 
@@ -1060,6 +1123,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         disconnectGoogleDrive,
         syncSubmissionFileToDrive,
         syncAllPendingFilesToDrive,
+        authDomainError,
+        setAuthDomainError,
         topics,
         addTopic,
         updateTopic,
@@ -1087,6 +1152,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         markNotificationAsRead,
         markAllNotificationsAsRead,
         unreadNotificationCount,
+        pushNotification,
         subjectStats,
         overallAveragePercentage,
       }}

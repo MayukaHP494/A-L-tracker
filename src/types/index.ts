@@ -241,7 +241,7 @@ export interface InAppNotification {
   id: string;
   title: string;
   message: string;
-  type: 'review_ready' | 'changes_requested' | 'approved' | 'overdue_homework' | 'drive_sync';
+  type: 'review_ready' | 'changes_requested' | 'approved' | 'overdue_homework' | 'drive_sync' | 'alert' | 'info';
   timestamp: string;
   isRead: boolean;
   linkTarget?: string; // tab or submission ID

@@ -11,9 +11,10 @@ import { HomeworkTrackerPage } from './components/homework/HomeworkTrackerPage.t
 import { StudyPlannerPage } from './components/planner/StudyPlannerPage.tsx';
 import { ReportsPage } from './components/reports/ReportsPage.tsx';
 import { SettingsPage } from './components/settings/SettingsPage.tsx';
+import { AuthorizedDomainModal } from './components/modals/AuthorizedDomainModal.tsx';
 
 function MainContent() {
-  const { activeTab } = useApp();
+  const { activeTab, authDomainError, setAuthDomainError } = useApp();
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
 
   return (
@@ -43,6 +44,14 @@ function MainContent() {
       <NotificationDrawer
         isOpen={isNotificationOpen}
         onClose={() => setIsNotificationOpen(false)}
+      />
+
+      {/* Domain Authorization Guidance Modal for Netlify / External Hosts */}
+      <AuthorizedDomainModal
+        isOpen={Boolean(authDomainError)}
+        onClose={() => setAuthDomainError(null)}
+        domain={authDomainError?.domain}
+        projectId={authDomainError?.projectId}
       />
     </div>
   );

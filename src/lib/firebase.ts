@@ -1,16 +1,75 @@
-import { initializeApp, getApps } from 'firebase/app';
+import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import {
   getAuth,
   signInWithPopup,
   GoogleAuthProvider,
   onAuthStateChanged,
   signOut,
-  User
+  User,
+  Auth
 } from 'firebase/auth';
-import firebaseConfig from '../../firebase-applet-config.json';
+import defaultConfig from '../../firebase-applet-config.json';
 
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-export const auth = getAuth(app);
+export interface FirebaseAppConfig {
+  projectId: string;
+  appId: string;
+  apiKey: string;
+  authDomain: string;
+  storageBucket: string;
+  messagingSenderId: string;
+  oAuthClientId?: string;
+  measurementId?: string;
+}
+
+const CUSTOM_CONFIG_KEY = 'al_tracker_custom_firebase_config';
+
+export function getActiveFirebaseConfig(): FirebaseAppConfig {
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = localStorage.getItem(CUSTOM_CONFIG_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.projectId && parsed.apiKey) {
+          return {
+            ...defaultConfig,
+            ...parsed,
+          };
+        }
+      }
+    } catch {
+      // Fallback if JSON parse fails
+    }
+  }
+
+  // Fallback to environment variables or packaged config
+  return {
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || defaultConfig.projectId,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID || defaultConfig.appId,
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || defaultConfig.apiKey,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || defaultConfig.authDomain,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || defaultConfig.storageBucket,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || defaultConfig.messagingSenderId,
+    oAuthClientId: import.meta.env.VITE_FIREBASE_OAUTH_CLIENT_ID || defaultConfig.oAuthClientId,
+    measurementId: defaultConfig.measurementId || '',
+  };
+}
+
+export function saveCustomFirebaseConfig(config: Partial<FirebaseAppConfig>) {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(CUSTOM_CONFIG_KEY, JSON.stringify(config));
+    window.location.reload();
+  }
+}
+
+export function resetCustomFirebaseConfig() {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem(CUSTOM_CONFIG_KEY);
+    window.location.reload();
+  }
+}
+
+let app: FirebaseApp = getApps().length === 0 ? initializeApp(getActiveFirebaseConfig()) : getApps()[0];
+export let auth: Auth = getAuth(app);
 
 export const googleProvider = new GoogleAuthProvider();
 // Required Google Drive scope
@@ -38,6 +97,14 @@ export const initAuth = (
   });
 };
 
+export interface EnhancedAuthError extends Error {
+  code?: string;
+  isUnauthorizedDomain?: boolean;
+  domain?: string;
+  projectId?: string;
+  consoleUrl?: string;
+}
+
 export const googleSignIn = async (): Promise<{ user: User; accessToken: string }> => {
   try {
     isSigningIn = true;
@@ -48,8 +115,22 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
     }
     cachedAccessToken = credential.accessToken;
     return { user: result.user, accessToken: cachedAccessToken };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Google Sign-in failed:', error);
+    const activeCfg = getActiveFirebaseConfig();
+    const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
+    
+    if (error?.code === 'auth/unauthorized-domain' || error?.message?.includes('unauthorized-domain')) {
+      const enhanced: EnhancedAuthError = new Error(
+        `Firebase Error: The domain '${currentHost}' is not authorized in Firebase project '${activeCfg.projectId}'.`
+      );
+      enhanced.code = 'auth/unauthorized-domain';
+      enhanced.isUnauthorizedDomain = true;
+      enhanced.domain = currentHost;
+      enhanced.projectId = activeCfg.projectId;
+      enhanced.consoleUrl = `https://console.firebase.google.com/project/${activeCfg.projectId}/authentication/settings`;
+      throw enhanced;
+    }
     throw error;
   } finally {
     isSigningIn = false;
