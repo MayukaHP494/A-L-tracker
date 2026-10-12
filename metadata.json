@@ -1,0 +1,6 @@
+{
+  "name": "A/L Progress Tracker",
+  "description": "Comprehensive academic performance, paper marks, and homework tracking dashboard for Sri Lankan GCE A/L Physical Science students with review workflow and Google Drive integration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
